@@ -1,0 +1,30 @@
+[package]
+name = "black-jack-chain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-graphql = { version = "=7.0.2", default-features = false }
+async-graphql-derive = { version = "=7.0.2", default-features = false }
+getrandom = { version = "0.2.12", default-features = false, features = ["custom"] }
+linera-sdk = "0.12.0"
+log = "0.4.21"
+rand = "0.8.5"
+serde = { version = "1.0.202", features = ["derive"] }
+
+[dev-dependencies]
+linera-sdk = { version = "0.12.0", features = ["test"] }
+
+[[bin]]
+name = "black_jack_chain_contract"
+path = "src/contract.rs"
+
+[[bin]]
+name = "black_jack_chain_service"
+path = "src/service.rs"
+
+[profile.release]
+debug = true
+lto = true
+opt-level = 'z'
+strip = 'debuginfo'
