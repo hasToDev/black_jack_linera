@@ -1,8 +1,10 @@
 use linera_sdk::views::{linera_views, RegisterView, RootView, ViewStorageContext};
+use black_jack_chain::{Player, GameState};
 
 #[derive(RootView, async_graphql::SimpleObject)]
 #[view(context = "ViewStorageContext")]
 pub struct BlackJack {
-    pub value: RegisterView<u64>,
-    // Add fields here.
+    pub game_state: RegisterView<GameState>,
+    pub p1: RegisterView<Player>,
+    pub p2: RegisterView<Player>,
 }
