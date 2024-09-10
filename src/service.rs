@@ -12,7 +12,7 @@ use linera_sdk::{
     Service, ServiceRuntime,
 };
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, Insight};
+use black_jack_chain::{CardOperation, Insight, LastAction, PlayData};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -57,6 +57,25 @@ impl BlackJackService {
             game_state: self.state.game_state.get().clone(),
             p_one: self.state.p1.get().clone(),
             p_two: self.state.p2.get().clone(),
+        }
+    }
+
+    async fn get_play_data(&self, player_id: String) -> PlayData {
+        if self.state.play_data.contains_key(&player_id).await.unwrap_or(false) {
+            return self.state.play_data.get(&player_id).await
+                .unwrap_or_else(|_| {
+                    panic!("unable to get play data");
+                }).unwrap_or_else(|| {
+                panic!("unable to get play data");
+            });
+        }
+        PlayData {
+            my_card: vec![],
+            opponent_card: vec![],
+            my_score: 0,
+            opponent_score: 0,
+            player_id_turn: "".to_string(),
+            last_action: LastAction::None,
         }
     }
 }

@@ -1,3 +1,6 @@
+mod constants;
+mod random;
+
 use std::str::FromStr;
 use async_graphql::{Request, Response, scalar};
 use async_graphql_derive::{SimpleObject};
@@ -44,7 +47,10 @@ pub enum CardOperation {
         player_name: String,
     },
     Start,
-    DrawCard,
+    Action {
+        player_id: String,
+        action: u8,
+    },
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -93,7 +99,7 @@ pub struct GameState {
     pub status: Status,
 }
 
-impl Default for crate::GameState {
+impl Default for GameState {
     fn default() -> Self {
         Self {
             status: Status::Idle,
@@ -110,6 +116,7 @@ pub enum Status {
     Idle,
     Waiting,
     Started,
+    Finish,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -140,4 +147,38 @@ impl Default for Insight {
             p_two: Player::default(),
         }
     }
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [PlayData]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+pub struct PlayData {
+    pub my_card: Vec<u8>,
+    pub opponent_card: Vec<u8>,
+    pub my_score: u8,
+    pub opponent_score: u8,
+    pub player_id_turn: String,
+    pub last_action: LastAction,
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [LastAction]
+/// ------------------------------------------------------------------------------------------
+scalar!(LastAction);
+#[derive(Debug, Clone, Copy, Deserialize, Eq, Ord, PartialOrd, PartialEq, Serialize)]
+pub enum LastAction {
+    None,
+    Stand,
+    Hit,
 }
