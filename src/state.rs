@@ -9,6 +9,7 @@ pub struct BlackJack {
     pub p2: RegisterView<Player>,
     pub decks: RegisterView<Vec<u8>>,
     pub play_data: MapView<String, PlayData>,
+    // leaderboard and history belong to leaderboard chain
     pub leaderboard: MapView<String, Player>,
     pub history: QueueView<History>,
 }

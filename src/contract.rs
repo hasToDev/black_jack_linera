@@ -11,7 +11,7 @@ use linera_sdk::{
     views::{RootView, View, ViewStorageContext},
     Contract, ContractRuntime,
 };
-use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History};
+use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player};
 use self::state::BlackJack;
 use crate::count::*;
 use crate::random::*;
@@ -87,9 +87,16 @@ impl Contract for BlackJackContract {
                         panic!("blackjack have started");
                     }
                     Status::Finish => {
-                        // TODO: implement this, should do the same action with Status::Idle
-                        // TODO: process with new player
-                        // TODO: don't forget to reset all contract state first
+                        let mut player_one = Player::default();
+                        player_one.id = player_id;
+                        player_one.name = player_name;
+
+                        self.state.p1.set(player_one);
+                        self.state.p2.set(Player::default());
+                        self.state.decks.set(Vec::new());
+                        self.state.play_data.clear();
+
+                        game_state.status = Status::Waiting;
                     }
                 }
             }
