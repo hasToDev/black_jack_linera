@@ -4,7 +4,7 @@ mod random;
 use std::str::FromStr;
 use async_graphql::{Request, Response, scalar};
 use async_graphql_derive::{SimpleObject};
-use linera_sdk::base::{ChainId, ContractAbi, ServiceAbi};
+use linera_sdk::base::{ChainId, ContractAbi, ServiceAbi, Timestamp};
 use linera_sdk::graphql::GraphQLMutationRoot;
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +34,12 @@ pub struct BlackJackParameters {
 /// ------------------------------------------------------------------------------------------
 #[derive(Debug, Deserialize, Serialize)]
 pub enum BlackJackMessage {
-    Leaderboard,
+    GameResult {
+        p1: String,
+        p2: String,
+        winner: String,
+        time: Timestamp,
+    },
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -70,6 +75,9 @@ pub enum CardOperation {
 pub struct Player {
     pub id: String,
     pub name: String,
+    pub win: u32,
+    pub lose: u32,
+    pub play: u32,
 }
 
 impl Default for Player {
@@ -77,6 +85,9 @@ impl Default for Player {
         Self {
             id: String::from(""),
             name: String::from(""),
+            win: 0,
+            lose: 0,
+            play: 0,
         }
     }
 }
@@ -181,4 +192,25 @@ pub enum LastAction {
     None,
     Stand,
     Hit,
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [History]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+pub struct History {
+    pub p1: String,
+    pub p2: String,
+    pub winner: String,
+    pub time: Timestamp,
 }

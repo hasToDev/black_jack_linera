@@ -5,12 +5,13 @@ mod constants;
 mod random;
 mod state;
 
+use std::ops::Add;
 use linera_sdk::{
     base::WithContractAbi,
     views::{RootView, View, ViewStorageContext},
     Contract, ContractRuntime,
 };
-use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction};
+use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History};
 use self::state::BlackJack;
 use crate::count::*;
 use crate::random::*;
@@ -87,6 +88,8 @@ impl Contract for BlackJackContract {
                     }
                     Status::Finish => {
                         // TODO: implement this, should do the same action with Status::Idle
+                        // TODO: process with new player
+                        // TODO: don't forget to reset all contract state first
                     }
                 }
             }
@@ -114,7 +117,52 @@ impl Contract for BlackJackContract {
         }
     }
 
-    async fn execute_message(&mut self, _message: Self::Message) {}
+    async fn execute_message(&mut self, _message: Self::Message) {
+        let is_bouncing = self
+            .runtime
+            .message_is_bouncing()
+            .unwrap_or_else(|| {
+                panic!("Message delivery status has to be available when executing a message");
+            });
+
+        match _message {
+            BlackJackMessage::GameResult { p1, p2, winner, time } => {
+                log::info!("BlackJackMessage::GameResult");
+                // BlackJackMessage::GameResult not being tracked
+                // Even if it does, bouncing message should do nothing.
+                if is_bouncing {
+                    return;
+                }
+
+                // load leaderboard
+                let mut p1_stats = self.state.leaderboard.get(&p1).await.unwrap().unwrap();
+                let mut p2_stats = self.state.leaderboard.get(&p2).await.unwrap().unwrap();
+
+                // update leaderboard
+                p1_stats.name = p1.clone();
+                p1_stats.play = p1_stats.play.saturating_add(1);
+                p2_stats.name = p2.clone();
+                p2_stats.play = p2_stats.play.saturating_add(1);
+
+                if winner.eq(&p1) {
+                    // Player 1 Win
+                    p1_stats.win = p1_stats.win.saturating_add(1);
+                    p2_stats.lose = p2_stats.lose.saturating_add(1);
+                } else {
+                    // Player 2 Win
+                    p1_stats.lose = p1_stats.lose.saturating_add(1);
+                    p2_stats.win = p2_stats.win.saturating_add(1);
+                }
+
+                // save leaderboard
+                self.state.leaderboard.insert(&p1, p1_stats).unwrap_or_else(|_| { panic!("Failed to update leaderboard for {:?}", p1); });
+                self.state.leaderboard.insert(&p2, p2_stats).unwrap_or_else(|_| { panic!("Failed to update leaderboard for {:?}", p2); });
+
+                // add game history
+                self.state.history.push_back(History { p1, p2, winner, time });
+            }
+        }
+    }
 
     async fn store(mut self) {
         self.state.save().await.expect("Failed to save state");
@@ -171,9 +219,36 @@ impl BlackJackContract {
         // check last action
         // if last action is stand, then the game must end because both player action choose to stand
         // the winner is player with the biggest score
-        if p1_data.last_action == LastAction::Stand {
-            // TODO: process with winner, find out who's winning, then end the game
-            // TODO: don't forget to reset all contract state
+        if p1_data.last_action == LastAction::Stand || p2_data.last_action == LastAction::Stand {
+            let p1_score = p1_data.my_score;
+            let p2_score = p2_data.my_score;
+
+            let mut winner = String::from("");
+
+            if p1_score == p2_score && p1_score < 21 {
+                // Draw
+            } else if p1_score > p2_score && p1_score <= 21 || p2_score > 21 {
+                // Player 1 win
+                winner = player_one.name.clone();
+            } else if p2_score > p1_score && p2_score <= 21 || p1_score > 21 {
+                // Player 2 win
+                winner = player_two.name.clone();
+            }
+
+            // update game state
+            let game_state = self.state.game_state.get_mut();
+            game_state.status = Status::Finish;
+
+            // send message to leaderboard chain
+            let message = BlackJackMessage::GameResult {
+                p1: player_one.name.clone(),
+                p2: player_two.name.clone(),
+                winner,
+                time: self.runtime.system_time(),
+            };
+            self.runtime
+                .prepare_message(message)
+                .send_to(self.runtime.application_parameters().leaderboard_chain_id);
         } else {
             // update data
             p1_data.player_id_turn = next_turn.clone();
