@@ -93,7 +93,6 @@ impl Contract for BlackJackContract {
                     }
                 }
             }
-            CardOperation::Start => {}
             CardOperation::Action { player_id, action } => {
                 log::info!("CardOperation::Action");
 

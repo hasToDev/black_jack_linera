@@ -51,7 +51,6 @@ pub enum CardOperation {
         player_id: String,
         player_name: String,
     },
-    Start,
     Action {
         player_id: String,
         action: u8,
