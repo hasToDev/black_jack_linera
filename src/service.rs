@@ -12,7 +12,7 @@ use linera_sdk::{
     Service, ServiceRuntime,
 };
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, Insight, LastAction, PlayData, Status};
+use black_jack_chain::{CardOperation, History, Insight, LastAction, PlayData, Player, Status};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -79,5 +79,25 @@ impl BlackJackService {
             winner: "".to_string(),
             game_state: Status::Idle,
         }
+    }
+
+    async fn get_history(&self, limit: u32) -> Vec<History> {
+        let history_count = self.state.history.count();
+        if limit > history_count as u32 {
+            return self.state.history.read_back(history_count).await.unwrap_or_else(|_| { panic!("unable to read history"); });
+        }
+        self.state.history.read_back(limit as usize).await.unwrap_or_else(|_| { panic!("unable to read history"); })
+    }
+
+    async fn get_leaderboard(&self) -> Vec<Player> {
+        let player_keys = self.state.leaderboard.indices().await.unwrap_or_else(|_| { panic!("unable to read leaderboard"); });
+        let mut players = Vec::new();
+
+        for key in player_keys.into_iter() {
+            let p = self.state.leaderboard.get(&key).await.unwrap_or_else(|_| { panic!("unable to get player"); }).unwrap_or_else(|| { panic!("unable to get player"); });
+            players.push(p);
+        }
+
+        players
     }
 }
