@@ -11,7 +11,7 @@ use linera_sdk::{
     views::{RootView, View, ViewStorageContext},
     Contract, ContractRuntime,
 };
-use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player};
+use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState};
 use self::state::BlackJack;
 use crate::count::*;
 use crate::random::*;
@@ -87,15 +87,18 @@ impl Contract for BlackJackContract {
                         panic!("blackjack have started");
                     }
                     Status::Finish => {
+                        // create Player 1
                         let mut player_one = Player::default();
                         player_one.id = player_id;
                         player_one.name = player_name;
 
+                        // update Player 1 data and reset previous game stats
                         self.state.p1.set(player_one);
                         self.state.p2.set(Player::default());
                         self.state.decks.set(Vec::new());
                         self.state.play_data.clear();
 
+                        // change status to Waiting for Player 2
                         game_state.status = Status::Waiting;
                     }
                 }
@@ -203,6 +206,18 @@ impl BlackJackContract {
         }
     }
 
+    async fn send_game_finish_message(&mut self, p1: String, p2: String, winner: String) {
+        // send message to leaderboard chain
+        let message = BlackJackMessage::GameResult {
+            p1,
+            p2,
+            winner,
+            time: self.runtime.system_time(),
+        };
+        self.runtime
+            .prepare_message(message)
+            .send_to(self.runtime.application_parameters().leaderboard_chain_id);
+    }
 
     async fn stand(&mut self, player_id: String) {
         let player_one = self.state.p1.get();
@@ -241,20 +256,23 @@ impl BlackJackContract {
                 winner = player_two.name.clone();
             }
 
-            // update game state
-            let game_state = self.state.game_state.get_mut();
-            game_state.status = Status::Finish;
+            // update data
+            p1_data.winner = winner.clone();
+            p2_data.winner = winner.clone();
+            p1_data.game_state = Status::Finish;
+            p2_data.game_state = Status::Finish;
+
+            // save data to state
+            self.state.game_state.set(GameState { status: Status::Finish });
+            self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
+            });
+            self.state.play_data.insert(&player_two.id, p2_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_two.name, player_two.id);
+            });
 
             // send message to leaderboard chain
-            let message = BlackJackMessage::GameResult {
-                p1: player_one.name.clone(),
-                p2: player_two.name.clone(),
-                winner,
-                time: self.runtime.system_time(),
-            };
-            self.runtime
-                .prepare_message(message)
-                .send_to(self.runtime.application_parameters().leaderboard_chain_id);
+            self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
         } else {
             // update data
             p1_data.player_id_turn = next_turn.clone();
@@ -291,7 +309,6 @@ impl BlackJackContract {
         let mut p2_data = self.state.play_data.get(&player_two.id).await
             .unwrap_or_else(|_| { panic!("unable to get play data"); }).unwrap_or_else(|| { panic!("unable to get play data"); });
 
-
         // player turn
         if player_one.id == player_id {
             // P1
@@ -319,23 +336,61 @@ impl BlackJackContract {
             current_decks.swap_remove(index as usize);
         }
 
-        // update data
-        p1_data.player_id_turn = next_turn.clone();
-        p1_data.last_action = LastAction::Hit;
-        p2_data.player_id_turn = next_turn;
-        p2_data.last_action = LastAction::Hit;
+        // check turn result for winner
+        let p1_score = p1_data.my_score;
+        let p2_score = p2_data.my_score;
 
-        // save data to state
-        self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
-            panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
-        });
-        self.state.play_data.insert(&player_two.id, p2_data).unwrap_or_else(|_| {
-            panic!("Failed to update Play Data for {:?} - {:?}", player_two.name, player_two.id);
-        });
+        let mut winner_exist = false;
+        let mut winner = String::from("");
 
-        // TODO: compare both player score, if any of the player score is 21 or more, then the game must end
-        // TODO: find out who's winning, then end the game
-        // TODO: don't forget to reset all contract state
+        if p1_score == 21 || p2_score > 21 {
+            // Player 1 win
+            winner_exist = true;
+            winner = player_one.name.clone();
+        } else if p2_score == 21 || p1_score > 21 {
+            // Player 2 win
+            winner_exist = true;
+            winner = player_two.name.clone();
+        }
+
+        if winner_exist {
+            // update data
+            p1_data.winner = winner.clone();
+            p1_data.game_state = Status::Finish;
+            p1_data.last_action = LastAction::Hit;
+            p1_data.player_id_turn = "".to_string();
+
+            p2_data.winner = winner.clone();
+            p2_data.game_state = Status::Finish;
+            p2_data.last_action = LastAction::Hit;
+            p2_data.player_id_turn = "".to_string();
+
+            // save data to state
+            self.state.game_state.set(GameState { status: Status::Finish });
+            self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
+            });
+            self.state.play_data.insert(&player_two.id, p2_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_two.name, player_two.id);
+            });
+
+            // send message to leaderboard chain
+            self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
+        } else {
+            // update data
+            p1_data.player_id_turn = next_turn.clone();
+            p1_data.last_action = LastAction::Hit;
+            p2_data.player_id_turn = next_turn;
+            p2_data.last_action = LastAction::Hit;
+
+            // save data to state
+            self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
+            });
+            self.state.play_data.insert(&player_two.id, p2_data).unwrap_or_else(|_| {
+                panic!("Failed to update Play Data for {:?} - {:?}", player_two.name, player_two.id);
+            });
+        }
     }
 
     async fn start_game(&mut self, p2_id: String, p2_name: String) {
@@ -407,6 +462,8 @@ impl BlackJackContract {
             opponent_score: p2_score_for_opponent,
             player_id_turn: player_one.id.clone(),
             last_action: LastAction::None,
+            winner: String::from(""),
+            game_state: Status::Started,
         },
         ).unwrap_or_else(|_| {
             panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
@@ -418,6 +475,8 @@ impl BlackJackContract {
             opponent_score: p1_score_for_opponent,
             player_id_turn: player_one.id.clone(),
             last_action: LastAction::None,
+            winner: String::from(""),
+            game_state: Status::Started,
         },
         ).unwrap_or_else(|_| {
             panic!("Failed to update Play Data for {:?} - {:?}", p2_name, p2_id);

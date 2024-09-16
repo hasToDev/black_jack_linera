@@ -180,6 +180,8 @@ pub struct PlayData {
     pub opponent_score: u8,
     pub player_id_turn: String,
     pub last_action: LastAction,
+    pub winner: String,
+    pub game_state: Status,
 }
 
 /// ------------------------------------------------------------------------------------------

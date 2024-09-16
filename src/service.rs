@@ -12,7 +12,7 @@ use linera_sdk::{
     Service, ServiceRuntime,
 };
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, Insight, LastAction, PlayData};
+use black_jack_chain::{CardOperation, Insight, LastAction, PlayData, Status};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -76,6 +76,8 @@ impl BlackJackService {
             opponent_score: 0,
             player_id_turn: "".to_string(),
             last_action: LastAction::None,
+            winner: "".to_string(),
+            game_state: Status::Idle,
         }
     }
 }
