@@ -34,7 +34,7 @@ pub fn calculate_player_score(chosen_card: u8, card_list: &Vec<u8>, current_scor
     let mut temp_card_list = card_list.to_owned();
 
     // remove 1, 14, 27, and 40 value (ace card) in temporary card list
-    temp_card_list.retain(|&x| x != 1 || x != 14 || x != 27 || x != 40);
+    temp_card_list.retain(|&x| x != 1 && x != 14 && x != 27 && x != 40);
 
     // calculate new score without any ace card
     for card in temp_card_list.into_iter() {
