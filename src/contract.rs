@@ -319,8 +319,10 @@ impl BlackJackContract {
             });
             p1_data.my_card.push(*chosen_card);
             p2_data.opponent_card.push(*chosen_card);
-            p1_data.my_score = p1_data.my_score.saturating_add(calculate_player_score(*chosen_card, &p1_data.my_card, p1_data.my_score));
-            p2_data.opponent_score = p2_data.opponent_score.saturating_add(calculate_player_score(*chosen_card, &p2_data.opponent_card, p2_data.opponent_score));
+            // p1_data.my_score = p1_data.my_score.saturating_add(calculate_player_score(*chosen_card, &p1_data.my_card, p1_data.my_score));
+            // p2_data.opponent_score = p2_data.opponent_score.saturating_add(calculate_player_score(*chosen_card, &p2_data.opponent_card, p2_data.opponent_score));
+            p1_data.my_score = calculate_player_score(*chosen_card, &p1_data.my_card, p1_data.my_score);
+            p2_data.opponent_score = calculate_player_score(*chosen_card, &p2_data.opponent_card, p2_data.opponent_score);
             current_decks.swap_remove(index as usize);
         } else {
             // P2
@@ -331,8 +333,10 @@ impl BlackJackContract {
             });
             p2_data.my_card.push(*chosen_card);
             p1_data.opponent_card.push(*chosen_card);
-            p2_data.my_score = p2_data.my_score.saturating_add(calculate_player_score(*chosen_card, &p2_data.my_card, p2_data.my_score));
-            p1_data.opponent_score = p1_data.opponent_score.saturating_add(calculate_player_score(*chosen_card, &p1_data.opponent_card, p1_data.opponent_score));
+            // p2_data.my_score = p2_data.my_score.saturating_add(calculate_player_score(*chosen_card, &p2_data.my_card, p2_data.my_score));
+            // p1_data.opponent_score = p1_data.opponent_score.saturating_add(calculate_player_score(*chosen_card, &p1_data.opponent_card, p1_data.opponent_score));
+            p2_data.my_score = calculate_player_score(*chosen_card, &p2_data.my_card, p2_data.my_score);
+            p1_data.opponent_score = calculate_player_score(*chosen_card, &p1_data.opponent_card, p1_data.opponent_score);
             current_decks.swap_remove(index as usize);
         }
 
@@ -415,7 +419,8 @@ impl BlackJackContract {
             panic!("unable to draw card");
         });
         p1_card.push(*chosen_card);
-        p1_score = p1_score.saturating_add(calculate_player_score(*chosen_card, &p1_card, p1_score));
+        // p1_score = p1_score.saturating_add(calculate_player_score(*chosen_card, &p1_card, p1_score));
+        p1_score = calculate_player_score(*chosen_card, &p1_card, p1_score);
         p1_card_for_opponent.push(0);
         new_decks.swap_remove(index as usize);
 
@@ -426,7 +431,8 @@ impl BlackJackContract {
             panic!("unable to draw card");
         });
         p2_card.push(*chosen_card);
-        p2_score = p2_score.saturating_add(calculate_player_score(*chosen_card, &p2_card, p2_score));
+        // p2_score = p2_score.saturating_add(calculate_player_score(*chosen_card, &p2_card, p2_score));
+        p2_score = calculate_player_score(*chosen_card, &p2_card, p2_score);
         p2_card_for_opponent.push(0);
         new_decks.swap_remove(index as usize);
 
@@ -438,8 +444,10 @@ impl BlackJackContract {
         });
         p1_card.push(*chosen_card);
         p1_card_for_opponent.push(*chosen_card);
-        p1_score = p1_score.saturating_add(calculate_player_score(*chosen_card, &p1_card, p1_score));
-        p1_score_for_opponent = p1_score_for_opponent.saturating_add(calculate_player_score(*chosen_card, &p1_card_for_opponent, p1_score_for_opponent));
+        // p1_score = p1_score.saturating_add(calculate_player_score(*chosen_card, &p1_card, p1_score));
+        // p1_score_for_opponent = p1_score_for_opponent.saturating_add(calculate_player_score(*chosen_card, &p1_card_for_opponent, p1_score_for_opponent));
+        p1_score = calculate_player_score(*chosen_card, &p1_card, p1_score);
+        p1_score_for_opponent = calculate_player_score(*chosen_card, &p1_card_for_opponent, p1_score_for_opponent);
         new_decks.swap_remove(index as usize);
 
         // P2 Second Card
@@ -450,8 +458,10 @@ impl BlackJackContract {
         });
         p2_card.push(*chosen_card);
         p2_card_for_opponent.push(*chosen_card);
-        p2_score = p2_score.saturating_add(calculate_player_score(*chosen_card, &p2_card, p2_score));
-        p2_score_for_opponent = p2_score_for_opponent.saturating_add(calculate_player_score(*chosen_card, &p2_card_for_opponent, p2_score_for_opponent));
+        // p2_score = p2_score.saturating_add(calculate_player_score(*chosen_card, &p2_card, p2_score));
+        // p2_score_for_opponent = p2_score_for_opponent.saturating_add(calculate_player_score(*chosen_card, &p2_card_for_opponent, p2_score_for_opponent));
+        p2_score = calculate_player_score(*chosen_card, &p2_card, p2_score);
+        p2_score_for_opponent = calculate_player_score(*chosen_card, &p2_card_for_opponent, p2_score_for_opponent);
         new_decks.swap_remove(index as usize);
 
         // save play data
