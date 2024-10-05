@@ -144,8 +144,12 @@ impl Contract for BlackJackContract {
                 }
 
                 // load leaderboard
-                let mut p1_stats = self.state.leaderboard.get(&p1).await.unwrap().unwrap();
-                let mut p2_stats = self.state.leaderboard.get(&p2).await.unwrap().unwrap();
+                let mut p1_stats = self.state.leaderboard.get(&p1).await
+                    .unwrap_or(Some(Player::default()))
+                    .unwrap_or(Player::default());
+                let mut p2_stats = self.state.leaderboard.get(&p2).await
+                    .unwrap_or(Some(Player::default()))
+                    .unwrap_or(Player::default());
 
                 // update leaderboard
                 p1_stats.name = p1.clone();
@@ -245,9 +249,11 @@ impl BlackJackContract {
             let p2_score = p2_data.my_score;
 
             let mut winner = String::from("");
+            let mut is_draw = false;
 
             if p1_score == p2_score && p1_score < 21 {
                 // Draw
+                is_draw = true;
             } else if p1_score > p2_score && p1_score <= 21 || p2_score > 21 {
                 // Player 1 win
                 winner = player_one.name.clone();
@@ -272,7 +278,9 @@ impl BlackJackContract {
             });
 
             // send message to leaderboard chain
-            self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
+            if !is_draw {
+                self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
+            }
         } else {
             // update data
             p1_data.player_id_turn = next_turn.clone();

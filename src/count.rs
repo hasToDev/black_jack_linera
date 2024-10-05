@@ -6,7 +6,13 @@ pub fn calculate_player_score(chosen_card: u8, card_list: &Vec<u8>, current_scor
 
     let card_score: u8 = get_card_score(chosen_card);
 
-    let ace_number_in_list = card_list.iter().filter(|&n| *n == 1 || *n == 14 || *n == 27 || *n == 40).count();
+    let mut ace_number_in_list = card_list.iter().filter(|&n| *n == 1 || *n == 14 || *n == 27 || *n == 40).count();
+
+    // if chosen_card is an ace, then reduce the ace_number_in_list by 1
+    // this is because that chosen_card is already included in card_list
+    if is_ace_card {
+        ace_number_in_list -= 1;
+    }
 
     // Condition 1
     // -------------------------------------------------------------------------
@@ -44,9 +50,6 @@ pub fn calculate_player_score(chosen_card: u8, card_list: &Vec<u8>, current_scor
     // Condition 3
     // -------------------------------------------------------------------------
     if ace_number_in_list > 0 && !is_ace_card {
-        // add the chosen card score
-        temp_score = temp_score.saturating_add(card_score);
-
         // calculate new score
         return calculate_new_score_with_ace_card(ace_number_in_list as u8, temp_score);
     }
