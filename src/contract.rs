@@ -161,7 +161,7 @@ impl Contract for BlackJackContract {
                     // Player 1 Win
                     p1_stats.win = p1_stats.win.saturating_add(1);
                     p2_stats.lose = p2_stats.lose.saturating_add(1);
-                } else {
+                } else if winner.eq(&p2) {
                     // Player 2 Win
                     p1_stats.lose = p1_stats.lose.saturating_add(1);
                     p2_stats.win = p2_stats.win.saturating_add(1);
@@ -249,11 +249,9 @@ impl BlackJackContract {
             let p2_score = p2_data.my_score;
 
             let mut winner = String::from("");
-            let mut is_draw = false;
 
             if p1_score == p2_score && p1_score < 21 {
                 // Draw
-                is_draw = true;
             } else if p1_score > p2_score && p1_score <= 21 || p2_score > 21 {
                 // Player 1 win
                 winner = player_one.name.clone();
@@ -278,9 +276,7 @@ impl BlackJackContract {
             });
 
             // send message to leaderboard chain
-            if !is_draw {
-                self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
-            }
+            self.send_game_finish_message(player_one.name.clone(), player_two.name.clone(), winner).await;
         } else {
             // update data
             p1_data.player_id_turn = next_turn.clone();
@@ -383,7 +379,7 @@ impl BlackJackContract {
             });
 
             // send message to leaderboard chain
-            self.send_game_finish_message(player_one.name.clone(), player_one.name.clone(), winner).await;
+            self.send_game_finish_message(player_one.name.clone(), player_two.name.clone(), winner).await;
         } else {
             // update data
             p1_data.player_id_turn = next_turn.clone();

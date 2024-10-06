@@ -98,6 +98,14 @@ impl BlackJackService {
             players.push(p);
         }
 
+        // Compare win counts -> cmp(&a.win)
+        // Compare lose counts -> then(a.lose.cmp(&b.lose))
+        players.sort_by(|a, b| {
+            b.win
+                .cmp(&a.win)
+                .then(a.lose.cmp(&b.lose))
+        });
+
         players
     }
 }
