@@ -68,6 +68,7 @@ impl Contract for BlackJackContract {
                 log::info!("CardOperation::Join");
 
                 let game_state = self.state.game_state.get_mut();
+                let current_time = self.runtime.system_time();
 
                 match game_state.status {
                     Status::Idle => {
@@ -75,31 +76,38 @@ impl Contract for BlackJackContract {
                         player_one.id = player_id;
                         player_one.name = player_name;
                         game_state.status = Status::Waiting;
+                        game_state.last_update = current_time;
                     }
                     Status::Waiting => {
                         let player_two = self.state.p2.get_mut();
                         player_two.id = player_id.clone();
                         player_two.name = player_name.clone();
                         game_state.status = Status::Started;
+                        game_state.last_update = current_time;
                         self.start_game(player_id, player_name).await;
                     }
                     Status::Started => {
-                        panic!("blackjack have started");
-                    }
-                    Status::Finish => {
-                        // create Player 1
-                        let mut player_one = Player::default();
-                        player_one.id = player_id;
-                        player_one.name = player_name;
+                        let time_elapsed = current_time.micros() - game_state.last_update.micros();
 
-                        // update Player 1 data and reset previous game stats
-                        self.state.p1.set(player_one);
-                        self.state.p2.set(Player::default());
-                        self.state.decks.set(Vec::new());
-                        self.state.play_data.clear();
+                        // panic is last game status update is less than 3 minutes
+                        if time_elapsed <= UNIX_MICRO_IN_3_MINUTES {
+                            panic!("blackjack have started");
+                        }
 
                         // change status to Waiting for Player 2
                         game_state.status = Status::Waiting;
+                        game_state.last_update = current_time;
+
+                        // let new people join because previous game is inactive for more than 3 minutes
+                        self.reset_and_register_new_player(player_id, player_name);
+                    }
+                    Status::Finish => {
+                        // change status to Waiting for Player 2
+                        game_state.status = Status::Waiting;
+                        game_state.last_update = current_time;
+
+                        // start new game
+                        self.reset_and_register_new_player(player_id, player_name);
                     }
                 }
             }
@@ -173,6 +181,10 @@ impl Contract for BlackJackContract {
 
                 // add game history
                 self.state.history.push_back(History { p1, p2, winner, time });
+
+                // increase game count
+                let c = self.state.game_count.get();
+                self.state.game_count.set(c.add(1));
             }
         }
     }
@@ -210,6 +222,19 @@ impl BlackJackContract {
         }
     }
 
+    fn reset_and_register_new_player(&mut self, player_id: String, player_name: String) {
+        // create Player 1
+        let mut player_one = Player::default();
+        player_one.id = player_id;
+        player_one.name = player_name;
+
+        // update Player 1 data and reset previous game stats
+        self.state.p1.set(player_one);
+        self.state.p2.set(Player::default());
+        self.state.decks.set(Vec::new());
+        self.state.play_data.clear();
+    }
+
     async fn send_game_finish_message(&mut self, p1: String, p2: String, winner: String) {
         // send message to leaderboard chain
         let message = BlackJackMessage::GameResult {
@@ -241,6 +266,8 @@ impl BlackJackContract {
         let mut p2_data = self.state.play_data.get(&player_two.id).await
             .unwrap_or_else(|_| { panic!("unable to get play data"); }).unwrap_or_else(|| { panic!("unable to get play data"); });
 
+        let current_time = self.runtime.system_time();
+
         // check last action
         // if last action is stand, then the game must end because both player action choose to stand
         // the winner is player with the biggest score
@@ -265,9 +292,11 @@ impl BlackJackContract {
             p2_data.winner = winner.clone();
             p1_data.game_state = Status::Finish;
             p2_data.game_state = Status::Finish;
+            p1_data.last_update = current_time;
+            p2_data.last_update = current_time;
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Finish });
+            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -281,10 +310,13 @@ impl BlackJackContract {
             // update data
             p1_data.player_id_turn = next_turn.clone();
             p1_data.last_action = LastAction::Stand;
+            p1_data.last_update = current_time;
             p2_data.player_id_turn = next_turn;
             p2_data.last_action = LastAction::Stand;
+            p2_data.last_update = current_time;
 
             // save data to state
+            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time.clone() });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -357,20 +389,24 @@ impl BlackJackContract {
             winner = player_two.name.clone();
         }
 
+        let current_time = self.runtime.system_time();
+
         if winner_exist {
             // update data
             p1_data.winner = winner.clone();
             p1_data.game_state = Status::Finish;
             p1_data.last_action = LastAction::Hit;
+            p1_data.last_update = current_time;
             p1_data.player_id_turn = "".to_string();
 
             p2_data.winner = winner.clone();
             p2_data.game_state = Status::Finish;
             p2_data.last_action = LastAction::Hit;
+            p2_data.last_update = current_time;
             p2_data.player_id_turn = "".to_string();
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Finish });
+            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -384,10 +420,13 @@ impl BlackJackContract {
             // update data
             p1_data.player_id_turn = next_turn.clone();
             p1_data.last_action = LastAction::Hit;
+            p1_data.last_update = current_time;
             p2_data.player_id_turn = next_turn;
             p2_data.last_action = LastAction::Hit;
+            p2_data.last_update = current_time;
 
             // save data to state
+            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time.clone() });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -458,6 +497,8 @@ impl BlackJackContract {
         p2_score_for_opponent = calculate_player_score(*chosen_card, &p2_card_for_opponent, p2_score_for_opponent);
         new_decks.swap_remove(index as usize);
 
+        let current_time = self.runtime.system_time();
+
         // save play data
         self.state.play_data.insert(&player_one.id, PlayData {
             my_card: p1_card,
@@ -468,6 +509,7 @@ impl BlackJackContract {
             last_action: LastAction::None,
             winner: String::from(""),
             game_state: Status::Started,
+            last_update: current_time,
         },
         ).unwrap_or_else(|_| {
             panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
@@ -481,6 +523,7 @@ impl BlackJackContract {
             last_action: LastAction::None,
             winner: String::from(""),
             game_state: Status::Started,
+            last_update: current_time,
         },
         ).unwrap_or_else(|_| {
             panic!("Failed to update Play Data for {:?} - {:?}", p2_name, p2_id);

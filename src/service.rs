@@ -1,6 +1,7 @@
 #![cfg_attr(target_arch = "wasm32", no_main)]
 
 mod state;
+mod constants;
 
 use std::sync::{Arc, Mutex};
 use async_graphql::{EmptySubscription, Executor, Schema};
@@ -11,8 +12,10 @@ use linera_sdk::{
     views::{View, ViewStorageContext},
     Service, ServiceRuntime,
 };
+use linera_sdk::base::Timestamp;
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, History, Insight, LastAction, PlayData, Player, Status};
+use black_jack_chain::{CardOperation, History, Insight, LastAction, Leaderboard, PlayData, Player, Status};
+use crate::constants::MILLENNIUM;
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -78,6 +81,7 @@ impl BlackJackService {
             last_action: LastAction::None,
             winner: "".to_string(),
             game_state: Status::Idle,
+            last_update: Timestamp::from(MILLENNIUM),
         }
     }
 
@@ -89,7 +93,7 @@ impl BlackJackService {
         self.state.history.read_back(limit as usize).await.unwrap_or_else(|_| { panic!("unable to read history"); })
     }
 
-    async fn get_leaderboard(&self) -> Vec<Player> {
+    async fn get_leaderboard(&self) -> Leaderboard {
         let player_keys = self.state.leaderboard.indices().await.unwrap_or_else(|_| { panic!("unable to read leaderboard"); });
         let mut players = Vec::new();
 
@@ -106,6 +110,6 @@ impl BlackJackService {
                 .then(a.lose.cmp(&b.lose))
         });
 
-        players
+        Leaderboard { rank: players, count: self.state.game_count.get().clone() }
     }
 }

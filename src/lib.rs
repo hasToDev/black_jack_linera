@@ -7,6 +7,7 @@ use async_graphql_derive::{SimpleObject};
 use linera_sdk::base::{ChainId, ContractAbi, ServiceAbi, Timestamp};
 use linera_sdk::graphql::GraphQLMutationRoot;
 use serde::{Deserialize, Serialize};
+use crate::constants::MILLENNIUM;
 
 pub struct BlackJackAbi;
 
@@ -107,12 +108,14 @@ impl Default for Player {
 )]
 pub struct GameState {
     pub status: Status,
+    pub last_update: Timestamp,
 }
 
 impl Default for GameState {
     fn default() -> Self {
         Self {
             status: Status::Idle,
+            last_update: Timestamp::from(MILLENNIUM),
         }
     }
 }
@@ -182,6 +185,7 @@ pub struct PlayData {
     pub last_action: LastAction,
     pub winner: String,
     pub game_state: Status,
+    pub last_update: Timestamp,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -214,4 +218,32 @@ pub struct History {
     pub p2: String,
     pub winner: String,
     pub time: Timestamp,
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [Leaderboard]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+pub struct Leaderboard {
+    pub rank: Vec<Player>,
+    pub count: u32,
+}
+
+impl Default for Leaderboard {
+    fn default() -> Self {
+        Self {
+            rank: Vec::new(),
+            count: 0,
+        }
+    }
 }

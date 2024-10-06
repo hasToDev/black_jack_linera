@@ -11,5 +11,6 @@ pub struct BlackJack {
     pub play_data: MapView<String, PlayData>,
     // leaderboard and history belong to leaderboard chain
     pub leaderboard: MapView<String, Player>,
+    pub game_count: RegisterView<u32>,
     pub history: QueueView<History>,
 }
