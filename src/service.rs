@@ -9,13 +9,11 @@ use async_graphql_derive::Object;
 use self::state::BlackJack;
 use linera_sdk::{
     base::WithServiceAbi,
-    views::{View, ViewStorageContext},
+    views::{View},
     Service, ServiceRuntime,
 };
-use linera_sdk::base::Timestamp;
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, History, Insight, LastAction, Leaderboard, PlayData, Player, Status};
-use crate::constants::MILLENNIUM;
+use black_jack_chain::{CardOperation, History, Insight, Leaderboard, PlayData};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -72,16 +70,31 @@ impl BlackJackService {
                 panic!("unable to get play data");
             });
         }
+        PlayData::default()
+    }
+
+    async fn get_play_data_for_spectators(&self) -> PlayData {
+        let p_one = self.state.p1.get().clone();
+        let p_two = self.state.p2.get().clone();
+
+        let p1_play_data = self.state.play_data.get(&p_one.id).await
+            .unwrap_or(Some(PlayData::default()))
+            .unwrap_or(PlayData::default());
+
+        let p2_play_data = self.state.play_data.get(&p_two.id).await
+            .unwrap_or(Some(PlayData::default()))
+            .unwrap_or(PlayData::default());
+
         PlayData {
-            my_card: vec![],
-            opponent_card: vec![],
-            my_score: 0,
-            opponent_score: 0,
-            player_id_turn: "".to_string(),
-            last_action: LastAction::None,
-            winner: "".to_string(),
-            game_state: Status::Idle,
-            last_update: Timestamp::from(MILLENNIUM),
+            my_card: p2_play_data.opponent_card,
+            opponent_card: p1_play_data.opponent_card,
+            my_score: p2_play_data.opponent_score,
+            opponent_score: p1_play_data.opponent_score,
+            player_id_turn: p1_play_data.player_id_turn,
+            last_action: p1_play_data.last_action,
+            winner: p1_play_data.winner,
+            game_state: p1_play_data.game_state,
+            last_update: p1_play_data.last_update,
         }
     }
 

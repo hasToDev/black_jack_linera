@@ -188,6 +188,22 @@ pub struct PlayData {
     pub last_update: Timestamp,
 }
 
+impl Default for PlayData {
+    fn default() -> Self {
+        Self {
+            my_card: vec![],
+            opponent_card: vec![],
+            my_score: 0,
+            opponent_score: 0,
+            player_id_turn: "".to_string(),
+            last_action: LastAction::None,
+            winner: "".to_string(),
+            game_state: Status::Idle,
+            last_update: Timestamp::from(MILLENNIUM),
+        }
+    }
+}
+
 /// ------------------------------------------------------------------------------------------
 /// [LastAction]
 /// ------------------------------------------------------------------------------------------
