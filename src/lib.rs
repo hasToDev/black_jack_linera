@@ -28,6 +28,7 @@ impl ServiceAbi for BlackJackAbi {
 pub struct BlackJackParameters {
     /// Chain ID for leaderboard
     pub leaderboard_chain_id: ChainId,
+    pub leaderboard_pass: String,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -55,6 +56,15 @@ pub enum CardOperation {
     Action {
         player_id: String,
         action: u8,
+    },
+    StartLeaderBoard {
+        p: String,
+    },
+    StopLeaderBoard {
+        p: String,
+    },
+    ResetLeaderBoard {
+        p: String,
     },
 }
 

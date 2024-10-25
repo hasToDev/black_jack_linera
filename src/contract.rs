@@ -56,6 +56,9 @@ impl Contract for BlackJackContract {
                 app_params.leaderboard_chain_id,
                 "runtime ChainID doesn't match ChainID parameters"
             );
+
+            // set leaderboard to accept stats
+            self.state.leaderboard_on.set(true);
         }
     }
 
@@ -144,6 +147,26 @@ impl Contract for BlackJackContract {
                     }
                 }
             }
+            CardOperation::StartLeaderBoard { p } => {
+                // check Leaderboard authorization
+                self.check_p(p);
+
+                self.state.leaderboard_on.set(true);
+            }
+            CardOperation::StopLeaderBoard { p } => {
+                // check Leaderboard authorization
+                self.check_p(p);
+
+                self.state.leaderboard_on.set(false);
+            }
+            CardOperation::ResetLeaderBoard { p } => {
+                // check Leaderboard authorization
+                self.check_p(p);
+
+                self.state.leaderboard.clear();
+                self.state.game_count.set(0);
+                self.state.history.clear();
+            }
         }
     }
 
@@ -162,6 +185,11 @@ impl Contract for BlackJackContract {
                 // Even if it does, bouncing message should do nothing.
                 if is_bouncing {
                     return;
+                }
+
+                // prevent add stats to leaderboard if status is off
+                if !self.state.leaderboard_on.get() {
+                    panic!("Leaderboard is closed at the moment");
                 }
 
                 // load leaderboard
@@ -213,6 +241,14 @@ impl BlackJackContract {
             self.runtime.chain_id(),
             self.runtime.application_parameters().leaderboard_chain_id,
             "Leaderboard chain are not allowed to play"
+        )
+    }
+
+    fn check_p(&mut self, p: String) {
+        assert_eq!(
+            p,
+            self.runtime.application_parameters().leaderboard_pass,
+            "You are not authorized to execute Leaderboard operation"
         )
     }
 

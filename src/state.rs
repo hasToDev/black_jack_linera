@@ -13,4 +13,5 @@ pub struct BlackJack {
     pub leaderboard: MapView<String, Player>,
     pub game_count: RegisterView<u32>,
     pub history: QueueView<History>,
+    pub leaderboard_on: RegisterView<bool>,
 }
