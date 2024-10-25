@@ -63,12 +63,12 @@ impl Contract for BlackJackContract {
     }
 
     async fn execute_operation(&mut self, _operation: Self::Operation) -> Self::Response {
-        // root chain are not allowed to play
-        self.check_root_invocation();
-
         match _operation {
             CardOperation::Join { player_id, player_name } => {
                 log::info!("CardOperation::Join");
+
+                // root chain are not allowed to play
+                self.check_root_invocation();
 
                 let game_state = self.state.game_state.get_mut();
                 let current_time = self.runtime.system_time();
@@ -130,6 +130,9 @@ impl Contract for BlackJackContract {
             CardOperation::Action { player_id, action } => {
                 log::info!("CardOperation::Action");
 
+                // root chain are not allowed to play
+                self.check_root_invocation();
+
                 self.check_game_state();
                 self.check_player(player_id.clone()).await;
 
@@ -148,18 +151,24 @@ impl Contract for BlackJackContract {
                 }
             }
             CardOperation::StartLeaderBoard { p } => {
+                log::info!("CardOperation::StartLeaderBoard");
+
                 // check Leaderboard authorization
                 self.check_p(p);
 
                 self.state.leaderboard_on.set(true);
             }
             CardOperation::StopLeaderBoard { p } => {
+                log::info!("CardOperation::StopLeaderBoard");
+
                 // check Leaderboard authorization
                 self.check_p(p);
 
                 self.state.leaderboard_on.set(false);
             }
             CardOperation::ResetLeaderBoard { p } => {
+                log::info!("CardOperation::ResetLeaderBoard");
+
                 // check Leaderboard authorization
                 self.check_p(p);
 
