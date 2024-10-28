@@ -347,11 +347,18 @@ impl BlackJackContract {
 
             // update data
             p1_data.winner = winner.clone();
-            p2_data.winner = winner.clone();
             p1_data.game_state = Status::Finish;
-            p2_data.game_state = Status::Finish;
             p1_data.last_update = current_time;
+            p1_data.player_id_turn = "".to_string();
+            p1_data.opponent_score = p2_data.my_score;
+            p1_data.opponent_card = p2_data.my_card.clone();
+
+            p2_data.winner = winner.clone();
+            p2_data.game_state = Status::Finish;
             p2_data.last_update = current_time;
+            p2_data.player_id_turn = "".to_string();
+            p2_data.opponent_score = p1_data.my_score;
+            p2_data.opponent_card = p1_data.my_card.clone();
 
             // save data to state
             self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
@@ -456,12 +463,16 @@ impl BlackJackContract {
             p1_data.last_action = LastAction::Hit;
             p1_data.last_update = current_time;
             p1_data.player_id_turn = "".to_string();
+            p1_data.opponent_score = p2_data.my_score;
+            p1_data.opponent_card = p2_data.my_card.clone();
 
             p2_data.winner = winner.clone();
             p2_data.game_state = Status::Finish;
             p2_data.last_action = LastAction::Hit;
             p2_data.last_update = current_time;
             p2_data.player_id_turn = "".to_string();
+            p2_data.opponent_score = p1_data.my_score;
+            p2_data.opponent_card = p1_data.my_card.clone();
 
             // save data to state
             self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
