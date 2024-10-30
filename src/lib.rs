@@ -26,9 +26,9 @@ impl ServiceAbi for BlackJackAbi {
 /// ------------------------------------------------------------------------------------------
 #[derive(Clone, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct BlackJackParameters {
-    /// Chain ID for leaderboard
     pub leaderboard_chain_id: ChainId,
     pub leaderboard_pass: String,
+    pub room_status_chain_id: ChainId,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -41,6 +41,10 @@ pub enum BlackJackMessage {
         p2: String,
         winner: String,
         time: Timestamp,
+    },
+    RoomUpdate {
+        id: ChainId,
+        status: Insight,
     },
 }
 
@@ -157,6 +161,7 @@ pub enum Status {
     SimpleObject
 )]
 pub struct Insight {
+    pub id: ChainId,
     pub game_state: GameState,
     pub p_one: Player,
     pub p_two: Player,
@@ -165,6 +170,7 @@ pub struct Insight {
 impl Default for Insight {
     fn default() -> Self {
         Self {
+            id: ChainId::from_str("e4854ab09513d0e0b62497a5e190a074ff161c6c39e4dfa07dc5e2c0ee73d284").unwrap(),
             game_state: GameState::default(),
             p_one: Player::default(),
             p_two: Player::default(),

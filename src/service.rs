@@ -3,6 +3,7 @@
 mod state;
 mod constants;
 
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use async_graphql::{EmptySubscription, Executor, Schema};
 use async_graphql_derive::Object;
@@ -12,6 +13,7 @@ use linera_sdk::{
     views::{View},
     Service, ServiceRuntime,
 };
+use linera_sdk::base::ChainId;
 use linera_sdk::graphql::GraphQLMutationRoot;
 use black_jack_chain::{CardOperation, History, Insight, Leaderboard, PlayData};
 
@@ -55,6 +57,8 @@ impl Service for BlackJackService {
 impl BlackJackService {
     async fn get_insight(&self) -> Insight {
         Insight {
+            id: ChainId::from_str("e4854ab09513d0e0b62497a5e190a074ff161c6c39e4dfa07dc5e2c0ee73d284")
+                .unwrap_or_else(|_| { panic!("unable to create insight chain id"); }),
             game_state: self.state.game_state.get().clone(),
             p_one: self.state.p1.get().clone(),
             p_two: self.state.p2.get().clone(),
@@ -124,5 +128,17 @@ impl BlackJackService {
         });
 
         Leaderboard { rank: players, count: self.state.game_count.get().clone() }
+    }
+
+    async fn get_game_room_status(&self) -> Vec<Insight> {
+        let game_room_keys = self.state.room_status.indices().await.unwrap_or_else(|_| { panic!("unable to read room status"); });
+        let mut game_room = Vec::new();
+
+        for key in game_room_keys.into_iter() {
+            let p = self.state.room_status.get(&key).await.unwrap_or_else(|_| { panic!("unable to get insight"); }).unwrap_or_else(|| { panic!("unable to get insight"); });
+            game_room.push(p);
+        }
+
+        game_room
     }
 }
