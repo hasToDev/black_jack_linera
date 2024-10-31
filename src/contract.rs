@@ -12,7 +12,7 @@ use linera_sdk::{
     Contract, ContractRuntime,
 };
 use linera_sdk::base::ChainId;
-use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState, Insight};
+use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState, Insight, VersionAnalytics};
 use self::state::BlackJack;
 use crate::count::*;
 use crate::random::*;
@@ -51,19 +51,14 @@ impl Contract for BlackJackContract {
         if let Some(_owner) = self.runtime.authenticated_signer() {
             let chain_id = self.runtime.chain_id();
 
-            // make sure runtime Chain ID is equal with Leaderboard Chain ID from parameters
-            assert_eq!(
-                chain_id,
-                app_params.leaderboard_chain_id,
-                "runtime ChainID doesn't match ChainID parameters"
-            );
-
-            // make sure runtime Chain ID is different from the Room Status Chain ID from parameters
-            assert_ne!(
-                chain_id,
-                app_params.room_status_chain_id,
-                "runtime ChainID must be different than Room Status ChainID"
-            );
+            // make sure runtime Chain ID is :
+            // 1. equal with Leaderboard Chain ID
+            // 2. different from the Room Status Chain ID
+            // 3. different from the Analytics Chain ID
+            assert_eq!(chain_id, app_params.leaderboard_chain_id, "runtime ChainID doesn't match ChainID parameters");
+            assert_ne!(chain_id, app_params.room_status_chain_id, "runtime ChainID must be different than Room Status ChainID");
+            assert_ne!(chain_id, app_params.analytics_chain_id, "runtime ChainID must be different than Analytics ChainID");
+            assert_ne!(app_params.room_status_chain_id, app_params.analytics_chain_id, "Room Status ChainID must be different than Analytics ChainID");
 
             // set leaderboard to accept stats
             self.state.leaderboard_on.set(true);
@@ -72,7 +67,7 @@ impl Contract for BlackJackContract {
 
     async fn execute_operation(&mut self, _operation: Self::Operation) -> Self::Response {
         match _operation {
-            CardOperation::Join { player_id, player_name } => {
+            CardOperation::Join { player_id, player_name, version } => {
                 log::info!("CardOperation::Join");
 
                 // root chain are not allowed to play
@@ -101,8 +96,9 @@ impl Contract for BlackJackContract {
                             // let new people join because previous game is inactive for more than 1 minutes
                             self.reset_and_register_new_player(player_id, player_name);
 
-                            // send room status update
+                            // send message for room status update & analytics
                             self.send_room_status_update().await;
+                            self.send_app_version_analytics(version).await;
 
                             return;
                         }
@@ -139,8 +135,9 @@ impl Contract for BlackJackContract {
                     }
                 }
 
-                // send room status update
+                // send message for room status update & analytics
                 self.send_room_status_update().await;
+                self.send_app_version_analytics(version).await;
             }
             CardOperation::Action { player_id, action } => {
                 log::info!("CardOperation::Action");
@@ -273,6 +270,28 @@ impl Contract for BlackJackContract {
                     self.state.room_status.insert(&id, status).unwrap_or_else(|_| { panic!("Failed to update room status for {:?}", id); });
                 }
             }
+            BlackJackMessage::Analytic { version } => {
+                log::info!("BlackJackMessage::Analytic");
+                // BlackJackMessage::Analytic not being tracked
+                // Even if it does, bouncing message should do nothing.
+                if is_bouncing {
+                    return;
+                }
+
+                // load analytics
+                let mut analytics = self.state.analytics.get(&version).await
+                    .unwrap_or(Some(VersionAnalytics::default()))
+                    .unwrap_or(VersionAnalytics::default());
+
+                // update analytics
+                if analytics.v.eq(&String::from("")) {
+                    analytics.v = version.clone();
+                }
+                analytics.c = analytics.c.saturating_add(1);
+
+                // save analytics
+                self.state.analytics.insert(&version, analytics).unwrap_or_else(|_| { panic!("Failed to update analytics for {:?}", version); });
+            }
         }
     }
 
@@ -283,25 +302,13 @@ impl Contract for BlackJackContract {
 
 impl BlackJackContract {
     fn check_root_invocation(&mut self) {
-        assert_ne!(
-            self.runtime.chain_id(),
-            self.runtime.application_parameters().leaderboard_chain_id,
-            "Leaderboard chain are not allowed to play"
-        );
-
-        assert_ne!(
-            self.runtime.chain_id(),
-            self.runtime.application_parameters().room_status_chain_id,
-            "Room status chain are not allowed to play"
-        )
+        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().leaderboard_chain_id, "Leaderboard chain are not allowed to play");
+        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().room_status_chain_id, "Room status chain are not allowed to play");
+        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().analytics_chain_id, "Analytics chain are not allowed to play")
     }
 
     fn check_p(&mut self, p: String) {
-        assert_eq!(
-            p,
-            self.runtime.application_parameters().leaderboard_pass,
-            "You are not authorized to execute Leaderboard operation"
-        )
+        assert_eq!(p, self.runtime.application_parameters().leaderboard_pass, "You are not authorized to execute Leaderboard operation")
     }
 
     fn check_game_state(&mut self) {
@@ -358,13 +365,18 @@ impl BlackJackContract {
         };
 
         // send message to room status chain
-        let message = BlackJackMessage::RoomUpdate {
-            id: self.runtime.chain_id(),
-            status: new_status,
-        };
+        let message = BlackJackMessage::RoomUpdate { id: self.runtime.chain_id(), status: new_status };
         self.runtime
             .prepare_message(message)
             .send_to(self.runtime.application_parameters().room_status_chain_id);
+    }
+
+    async fn send_app_version_analytics(&mut self, version: String) {
+        // send message to analytics chain
+        let message = BlackJackMessage::Analytic { version };
+        self.runtime
+            .prepare_message(message)
+            .send_to(self.runtime.application_parameters().analytics_chain_id);
     }
 
     async fn stand(&mut self, player_id: String) {

@@ -29,6 +29,7 @@ pub struct BlackJackParameters {
     pub leaderboard_chain_id: ChainId,
     pub leaderboard_pass: String,
     pub room_status_chain_id: ChainId,
+    pub analytics_chain_id: ChainId,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -46,6 +47,9 @@ pub enum BlackJackMessage {
         id: ChainId,
         status: Insight,
     },
+    Analytic {
+        version: String,
+    },
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -56,6 +60,7 @@ pub enum CardOperation {
     Join {
         player_id: String,
         player_name: String,
+        version: String,
     },
     Action {
         player_id: String,
@@ -277,5 +282,30 @@ impl Default for Leaderboard {
             rank: Vec::new(),
             count: 0,
         }
+    }
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [VersionAnalytics]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+pub struct VersionAnalytics {
+    pub v: String,
+    pub c: u32,
+}
+
+impl Default for VersionAnalytics {
+    fn default() -> Self {
+        Self { v: "".to_string(), c: 0 }
     }
 }

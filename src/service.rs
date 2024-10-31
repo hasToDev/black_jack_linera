@@ -15,7 +15,7 @@ use linera_sdk::{
 };
 use linera_sdk::base::ChainId;
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, History, Insight, Leaderboard, PlayData};
+use black_jack_chain::{CardOperation, History, Insight, Leaderboard, PlayData, VersionAnalytics};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -140,5 +140,17 @@ impl BlackJackService {
         }
 
         game_room
+    }
+
+    async fn get_analytics(&self) -> Vec<VersionAnalytics> {
+        let analytics_keys = self.state.analytics.indices().await.unwrap_or_else(|_| { panic!("unable to read analytics"); });
+        let mut analytics_data = Vec::new();
+
+        for key in analytics_keys.into_iter() {
+            let p = self.state.analytics.get(&key).await.unwrap_or_else(|_| { panic!("unable to get version analytics"); }).unwrap_or_else(|| { panic!("unable to get version analytics"); });
+            analytics_data.push(p);
+        }
+
+        analytics_data
     }
 }
