@@ -92,13 +92,13 @@ impl Contract for BlackJackContract {
                     Status::Waiting => {
                         let time_elapsed = current_time.micros() - game_state.last_update.micros();
 
-                        // reset if last game status update is more than 3 minutes
-                        if time_elapsed >= UNIX_MICRO_IN_3_MINUTES {
+                        // reset if last game status update is more than 1 minutes
+                        if time_elapsed >= UNIX_MICRO_IN_1_MINUTES {
                             // change status to Waiting for Player 2
                             game_state.status = Status::Waiting;
                             game_state.last_update = current_time;
 
-                            // let new people join because previous game is inactive for more than 3 minutes
+                            // let new people join because previous game is inactive for more than 1 minutes
                             self.reset_and_register_new_player(player_id, player_name);
 
                             // send room status update
@@ -117,8 +117,8 @@ impl Contract for BlackJackContract {
                     Status::Started => {
                         let time_elapsed = current_time.micros() - game_state.last_update.micros();
 
-                        // panic if last game status update is less than 3 minutes
-                        if time_elapsed <= UNIX_MICRO_IN_3_MINUTES {
+                        // panic if last game status update is less than 1 minutes
+                        if time_elapsed <= UNIX_MICRO_IN_1_MINUTES {
                             panic!("blackjack have started");
                         }
 
@@ -126,7 +126,7 @@ impl Contract for BlackJackContract {
                         game_state.status = Status::Waiting;
                         game_state.last_update = current_time;
 
-                        // let new people join because previous game is inactive for more than 3 minutes
+                        // let new people join because previous game is inactive for more than 1 minutes
                         self.reset_and_register_new_player(player_id, player_name);
                     }
                     Status::Finish => {
