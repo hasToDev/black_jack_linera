@@ -396,7 +396,7 @@ impl BlackJackContract {
 
             let mut winner = String::from("");
 
-            if p1_score == p2_score && p1_score < 21 {
+            if p1_score == p2_score {
                 // Draw
             } else if p1_score > p2_score && p1_score <= 21 || p2_score > 21 {
                 // Player 1 win
@@ -474,6 +474,10 @@ impl BlackJackContract {
         let mut p2_data = self.state.play_data.get(&player_two.id).await
             .unwrap_or_else(|_| { panic!("unable to get play data"); }).unwrap_or_else(|| { panic!("unable to get play data"); });
 
+        // initial check to find out if any player have blackjack (21) score
+        let p1_have_blackjack = p1_data.my_score == 21;
+        let p2_have_blackjack = p2_data.my_score == 21;
+
         // player turn
         if player_one.id == player_id {
             // P1
@@ -508,8 +512,18 @@ impl BlackJackContract {
         let mut winner_exist = false;
         let mut winner = String::from("");
 
-        // TODO: add draw condition here
-        if p1_score == 21 || p2_score > 21 {
+        if p1_have_blackjack && p2_have_blackjack {
+            // Draw
+            winner_exist = true;
+        } else if p1_have_blackjack {
+            // Player 1 win
+            winner_exist = true;
+            winner = player_one.name.clone();
+        } else if p2_have_blackjack {
+            // Player 2 win
+            winner_exist = true;
+            winner = player_two.name.clone();
+        } else if p1_score == 21 || p2_score > 21 {
             // Player 1 win
             winner_exist = true;
             winner = player_one.name.clone();
