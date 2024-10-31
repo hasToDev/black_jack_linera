@@ -188,6 +188,14 @@ impl Contract for BlackJackContract {
                 self.state.game_count.set(0);
                 self.state.history.clear();
             }
+            CardOperation::ResetAnalytics { p } => {
+                log::info!("CardOperation::ResetAnalytics");
+
+                // check Analytics authorization
+                self.check_p(p);
+
+                self.state.analytics.clear();
+            }
         }
     }
 
@@ -308,7 +316,7 @@ impl BlackJackContract {
     }
 
     fn check_p(&mut self, p: String) {
-        assert_eq!(p, self.runtime.application_parameters().leaderboard_pass, "You are not authorized to execute Leaderboard operation")
+        assert_eq!(p, self.runtime.application_parameters().leaderboard_pass, "You are not authorized to execute Leaderboard and/or Analytics operation")
     }
 
     fn check_game_state(&mut self) {

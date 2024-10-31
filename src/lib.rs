@@ -75,6 +75,9 @@ pub enum CardOperation {
     ResetLeaderBoard {
         p: String,
     },
+    ResetAnalytics {
+        p: String,
+    },
 }
 
 /// ------------------------------------------------------------------------------------------
