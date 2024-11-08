@@ -7,7 +7,7 @@ use async_graphql_derive::{SimpleObject};
 use linera_sdk::base::{ChainId, ContractAbi, ServiceAbi, Timestamp};
 use linera_sdk::graphql::GraphQLMutationRoot;
 use serde::{Deserialize, Serialize};
-use crate::constants::MILLENNIUM;
+use crate::constants::{MILLENNIUM};
 
 pub struct BlackJackAbi;
 
@@ -110,6 +110,18 @@ impl Default for Player {
             win: 0,
             lose: 0,
             play: 0,
+        }
+    }
+}
+
+impl Player {
+    pub fn new(name: String) -> Self {
+        Player {
+            id: String::from(""),
+            name,
+            win: 0,
+            lose: 0,
+            play: 1,
         }
     }
 }
@@ -285,6 +297,53 @@ impl Default for Leaderboard {
             rank: Vec::new(),
             count: 0,
         }
+    }
+}
+
+impl Leaderboard {
+    pub fn update_player(&mut self, player_name: &String, winner_name: &String) {
+        let player_draw = String::from("");
+
+        let is_draw = winner_name.eq(&player_draw);
+        let is_player_win = !is_draw && winner_name.eq(player_name);
+        let is_player_lose = !is_draw && winner_name.ne(player_name);
+
+        if let Some(player) = self.rank.iter_mut().find(|p| p.name == *player_name) {
+            player.play = player.play.saturating_add(1);
+
+            if is_player_win {
+                // Player Win
+                player.win = player.win.saturating_add(1);
+            } else if is_player_lose {
+                // Player Lose
+                player.lose = player.lose.saturating_add(1);
+            }
+        } else {
+            let mut new_player = Player::new(player_name.clone());
+
+            if is_player_win {
+                // Player Win
+                new_player.win = new_player.win.saturating_add(1);
+            } else if is_player_lose {
+                // Player Lose
+                new_player.lose = new_player.lose.saturating_add(1);
+            }
+
+            self.rank.push(new_player);
+        }
+    }
+
+    pub fn sort_rank(&mut self) {
+        // Sort by wins (desc), then losses (asc)
+        // Compare win counts -> cmp(&a.win)
+        // Compare lose counts -> then(a.lose.cmp(&b.lose))
+        self.rank.sort_by(|a, b| {
+            b.win.cmp(&a.win).then(a.lose.cmp(&b.lose))
+        });
+    }
+
+    pub fn update_count(&mut self) {
+        self.count = self.count.saturating_add(1);
     }
 }
 

@@ -185,7 +185,6 @@ impl Contract for BlackJackContract {
                 self.check_p(p);
 
                 self.state.leaderboard.clear();
-                self.state.game_count.set(0);
                 self.state.history.clear();
             }
             CardOperation::ResetAnalytics { p } => {
@@ -222,39 +221,16 @@ impl Contract for BlackJackContract {
                 }
 
                 // load leaderboard
-                let mut p1_stats = self.state.leaderboard.get(&p1).await
-                    .unwrap_or(Some(Player::default()))
-                    .unwrap_or(Player::default());
-                let mut p2_stats = self.state.leaderboard.get(&p2).await
-                    .unwrap_or(Some(Player::default()))
-                    .unwrap_or(Player::default());
+                let current_leaderboard = self.state.leaderboard.get_mut();
 
                 // update leaderboard
-                p1_stats.name = p1.clone();
-                p1_stats.play = p1_stats.play.saturating_add(1);
-                p2_stats.name = p2.clone();
-                p2_stats.play = p2_stats.play.saturating_add(1);
-
-                if winner.eq(&p1) {
-                    // Player 1 Win
-                    p1_stats.win = p1_stats.win.saturating_add(1);
-                    p2_stats.lose = p2_stats.lose.saturating_add(1);
-                } else if winner.eq(&p2) {
-                    // Player 2 Win
-                    p1_stats.lose = p1_stats.lose.saturating_add(1);
-                    p2_stats.win = p2_stats.win.saturating_add(1);
-                }
-
-                // save leaderboard
-                self.state.leaderboard.insert(&p1, p1_stats).unwrap_or_else(|_| { panic!("Failed to update leaderboard for {:?}", p1); });
-                self.state.leaderboard.insert(&p2, p2_stats).unwrap_or_else(|_| { panic!("Failed to update leaderboard for {:?}", p2); });
+                current_leaderboard.update_player(&p1, &winner);
+                current_leaderboard.update_player(&p2, &winner);
+                current_leaderboard.sort_rank();
+                current_leaderboard.update_count();
 
                 // add game history
                 self.state.history.push_back(History { p1, p2, winner, time });
-
-                // increase game count
-                let c = self.state.game_count.get();
-                self.state.game_count.set(c.add(1));
             }
             BlackJackMessage::RoomUpdate { id, status } => {
                 log::info!("BlackJackMessage::RoomUpdate");

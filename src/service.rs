@@ -111,23 +111,7 @@ impl BlackJackService {
     }
 
     async fn get_leaderboard(&self) -> Leaderboard {
-        let player_keys = self.state.leaderboard.indices().await.unwrap_or_else(|_| { panic!("unable to read leaderboard"); });
-        let mut players = Vec::new();
-
-        for key in player_keys.into_iter() {
-            let p = self.state.leaderboard.get(&key).await.unwrap_or_else(|_| { panic!("unable to get player"); }).unwrap_or_else(|| { panic!("unable to get player"); });
-            players.push(p);
-        }
-
-        // Compare win counts -> cmp(&a.win)
-        // Compare lose counts -> then(a.lose.cmp(&b.lose))
-        players.sort_by(|a, b| {
-            b.win
-                .cmp(&a.win)
-                .then(a.lose.cmp(&b.lose))
-        });
-
-        Leaderboard { rank: players, count: self.state.game_count.get().clone() }
+        self.state.leaderboard.get().clone()
     }
 
     async fn get_game_room_status(&self) -> Vec<Insight> {
