@@ -18,4 +18,4 @@ pub const CARD_DECKS: [u8; 52] = [
 
 /// ------------------------------------------------------------------------------------------
 pub const MILLENNIUM: u64 = 946684800000000;
-pub const UNIX_MICRO_IN_1_MINUTES: u64 = 60_000_000;
+pub const UNIX_MICRO_IN_15_SECONDS: u64 = 15_000_000;
