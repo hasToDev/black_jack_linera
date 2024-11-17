@@ -90,6 +90,8 @@ impl BlackJackService {
             .unwrap_or(PlayData::default());
 
         PlayData {
+            p_one_id: p_one.id,
+            p_two_id: p_two.id,
             my_card: p2_play_data.opponent_card,
             opponent_card: p1_play_data.opponent_card,
             my_score: p2_play_data.opponent_score,

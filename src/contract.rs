@@ -87,13 +87,13 @@ impl Contract for BlackJackContract {
                     Status::Waiting => {
                         let time_elapsed = current_time.micros() - game_state.last_update.micros();
 
-                        // reset if last game status update is more than 15 seconds
-                        if time_elapsed >= UNIX_MICRO_IN_15_SECONDS {
+                        // reset if last game status update is more than 18 seconds
+                        if time_elapsed >= UNIX_MICRO_IN_18_SECONDS {
                             // change status to Waiting for Player 2
                             game_state.status = Status::Waiting;
                             game_state.last_update = current_time;
 
-                            // let new people join because previous game is inactive for more than 15 seconds
+                            // let new people join because previous game is inactive for more than 18 seconds
                             self.reset_and_register_new_player(player_id, player_name);
 
                             // send message for room status update & analytics
@@ -113,8 +113,8 @@ impl Contract for BlackJackContract {
                     Status::Started => {
                         let time_elapsed = current_time.micros() - game_state.last_update.micros();
 
-                        // panic if last game status update is less than 15 seconds
-                        if time_elapsed <= UNIX_MICRO_IN_15_SECONDS {
+                        // panic if last game status update is less than 18 seconds
+                        if time_elapsed <= UNIX_MICRO_IN_18_SECONDS {
                             panic!("blackjack have started");
                         }
 
@@ -122,7 +122,7 @@ impl Contract for BlackJackContract {
                         game_state.status = Status::Waiting;
                         game_state.last_update = current_time;
 
-                        // let new people join because previous game is inactive for more than 15 seconds
+                        // let new people join because previous game is inactive for more than 18 seconds
                         self.reset_and_register_new_player(player_id, player_name);
                     }
                     Status::Finish => {
@@ -648,6 +648,8 @@ impl BlackJackContract {
 
         // save play data
         self.state.play_data.insert(&player_one.id, PlayData {
+            p_one_id: player_one.id.clone(),
+            p_two_id: p2_id.clone(),
             my_card: p1_card,
             opponent_card: p2_card_for_opponent,
             my_score: p1_score,
@@ -662,6 +664,8 @@ impl BlackJackContract {
             panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
         });
         self.state.play_data.insert(&p2_id, PlayData {
+            p_one_id: player_one.id.clone(),
+            p_two_id: p2_id.clone(),
             my_card: p2_card,
             opponent_card: p1_card_for_opponent,
             my_score: p2_score,

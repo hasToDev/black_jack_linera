@@ -213,6 +213,8 @@ impl Default for Insight {
     SimpleObject
 )]
 pub struct PlayData {
+    pub p_one_id: String,
+    pub p_two_id: String,
     pub my_card: Vec<u8>,
     pub opponent_card: Vec<u8>,
     pub my_score: u8,
@@ -227,6 +229,8 @@ pub struct PlayData {
 impl Default for PlayData {
     fn default() -> Self {
         Self {
+            p_one_id: "".to_string(),
+            p_two_id: "".to_string(),
             my_card: vec![],
             opponent_card: vec![],
             my_score: 0,
