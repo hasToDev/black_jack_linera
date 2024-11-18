@@ -146,12 +146,12 @@ impl Contract for BlackJackContract {
                 self.check_root_invocation();
 
                 self.check_game_state();
-                self.check_player(player_id.clone()).await;
+                self.check_player(player_id.clone(), false).await;
 
                 match action {
                     0 => {
                         // Stand
-                        self.stand(player_id).await;
+                        self.stand(player_id, false).await;
                     }
                     1 => {
                         // Hit
@@ -161,6 +161,24 @@ impl Contract for BlackJackContract {
                         panic!("action not recognized");
                     }
                 }
+            }
+            CardOperation::IdleActionCheck { player_id } => {
+                log::info!("CardOperation::IdleActionCheck");
+
+                // root chain are not allowed to play
+                self.check_root_invocation();
+
+                self.check_game_state();
+                self.check_player(player_id.clone(), true).await;
+
+                // panic if last game status update is less than 10 seconds
+                let time_elapsed = self.runtime.system_time().micros() - self.state.game_state.get().last_update.micros();
+                if time_elapsed < UNIX_MICRO_IN_10_SECONDS {
+                    panic!("too early for idle action check");
+                }
+
+                // Stand
+                self.stand(player_id, true).await;
             }
             CardOperation::StartLeaderBoard { p } => {
                 log::info!("CardOperation::StartLeaderBoard");
@@ -302,11 +320,19 @@ impl BlackJackContract {
         }
     }
 
-    async fn check_player(&mut self, player_id: String) {
+    async fn check_player(&mut self, player_id: String, idle_action_check: bool) {
         if self.state.play_data.contains_key(&player_id).await.unwrap_or(false) {
             let p = self.state.play_data.get(&player_id).await
                 .unwrap_or_else(|_| { panic!("unable to get play data"); }).unwrap_or_else(|| { panic!("unable to get play data"); });
-            if p.player_id_turn != player_id {
+            let is_invoker_the_current_player_turn = p.player_id_turn == player_id;
+            if idle_action_check && !is_invoker_the_current_player_turn {
+                // only opponent of current player that can invoke idle action check
+                return;
+            }
+            if idle_action_check && is_invoker_the_current_player_turn {
+                panic!("current player can't do idle action check");
+            }
+            if !is_invoker_the_current_player_turn {
                 panic!("not your turn");
             }
         } else {
@@ -363,7 +389,7 @@ impl BlackJackContract {
             .send_to(self.runtime.application_parameters().analytics_chain_id);
     }
 
-    async fn stand(&mut self, player_id: String) {
+    async fn stand(&mut self, player_id: String, idle_action_check: bool) {
         let player_one = self.state.p1.get();
         let player_two = self.state.p2.get();
 
@@ -373,6 +399,11 @@ impl BlackJackContract {
             next_turn = player_two.id.clone();
         } else {
             next_turn = player_one.id.clone();
+        }
+
+        // set next turn to invoker player id on idle action check
+        if idle_action_check {
+            next_turn = player_id.clone();
         }
 
         // load game data

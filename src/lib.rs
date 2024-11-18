@@ -66,6 +66,9 @@ pub enum CardOperation {
         player_id: String,
         action: u8,
     },
+    IdleActionCheck {
+        player_id: String,
+    },
     StartLeaderBoard {
         p: String,
     },
