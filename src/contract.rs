@@ -5,13 +5,11 @@ mod constants;
 mod random;
 mod state;
 
-use std::ops::Add;
 use linera_sdk::{
     base::WithContractAbi,
-    views::{RootView, View, ViewStorageContext},
+    views::{RootView, View},
     Contract, ContractRuntime,
 };
-use linera_sdk::base::ChainId;
 use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState, Insight, VersionAnalytics};
 use self::state::BlackJack;
 use crate::count::*;
@@ -101,6 +99,11 @@ impl Contract for BlackJackContract {
                             self.send_app_version_analytics(version).await;
 
                             return;
+                        }
+
+                        let player_one = self.state.p1.get();
+                        if player_one.name.to_lowercase() == player_name.to_lowercase() || player_one.id == player_id {
+                            panic!("unable to start, both players have similar name or ID");
                         }
 
                         let player_two = self.state.p2.get_mut();
@@ -449,7 +452,7 @@ impl BlackJackContract {
             p2_data.opponent_card = p1_data.my_card.clone();
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
+            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -472,7 +475,7 @@ impl BlackJackContract {
             p2_data.last_update = current_time;
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time.clone() });
+            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -581,7 +584,7 @@ impl BlackJackContract {
             p2_data.opponent_card = p1_data.my_card.clone();
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time.clone() });
+            self.state.game_state.set(GameState { status: Status::Finish, last_update: current_time });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
@@ -604,7 +607,7 @@ impl BlackJackContract {
             p2_data.last_update = current_time;
 
             // save data to state
-            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time.clone() });
+            self.state.game_state.set(GameState { status: Status::Started, last_update: current_time });
             self.state.play_data.insert(&player_one.id, p1_data).unwrap_or_else(|_| {
                 panic!("Failed to update Play Data for {:?} - {:?}", player_one.name, player_one.id);
             });
