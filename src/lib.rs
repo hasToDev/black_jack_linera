@@ -89,6 +89,7 @@ pub enum CardOperation {
 #[derive(
     Debug,
     Clone,
+    Default,
     Deserialize,
     Eq,
     Ord,
@@ -103,18 +104,6 @@ pub struct Player {
     pub win: u32,
     pub lose: u32,
     pub play: u32,
-}
-
-impl Default for Player {
-    fn default() -> Self {
-        Self {
-            id: String::from(""),
-            name: String::from(""),
-            win: 0,
-            lose: 0,
-            play: 0,
-        }
-    }
 }
 
 impl Player {
@@ -285,6 +274,7 @@ pub struct History {
 #[derive(
     Debug,
     Clone,
+    Default,
     Deserialize,
     Eq,
     Ord,
@@ -296,15 +286,6 @@ pub struct History {
 pub struct Leaderboard {
     pub rank: Vec<Player>,
     pub count: u32,
-}
-
-impl Default for Leaderboard {
-    fn default() -> Self {
-        Self {
-            rank: Vec::new(),
-            count: 0,
-        }
-    }
 }
 
 impl Leaderboard {
