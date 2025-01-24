@@ -247,7 +247,7 @@ impl Contract for BlackJackContract {
                 // update leaderboard
                 current_leaderboard.update_player(&p1, &winner);
                 current_leaderboard.update_player(&p2, &winner);
-                current_leaderboard.sort_rank();
+                // current_leaderboard.sort_rank();
                 current_leaderboard.update_count();
 
                 // add game history
