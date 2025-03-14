@@ -39,8 +39,11 @@ pub struct BlackJackParameters {
 pub enum BlackJackMessage {
     GameResult {
         p1: String,
+        p1gid: String,
         p2: String,
+        p2gid: String,
         winner: String,
+        winner_gid: String,
         time: Timestamp,
     },
     RoomUpdate {
@@ -61,6 +64,7 @@ pub enum CardOperation {
         player_id: String,
         player_name: String,
         version: String,
+        gid: String,
     },
     Action {
         player_id: String,
@@ -101,6 +105,7 @@ pub enum CardOperation {
 pub struct Player {
     pub id: String,
     pub name: String,
+    pub gid: String,
     pub win: u32,
     pub lose: u32,
     pub play: u32,
@@ -111,6 +116,7 @@ impl Player {
         Player {
             id: String::from(""),
             name,
+            gid: String::from(""),
             win: 0,
             lose: 0,
             play: 1,
@@ -357,5 +363,59 @@ pub struct VersionAnalytics {
 impl Default for VersionAnalytics {
     fn default() -> Self {
         Self { v: "".to_string(), c: 0 }
+    }
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [GidLeaderboard]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+pub struct GidLeaderboard {
+    pub gid: Vec<Player>,
+    pub count: u32,
+}
+
+impl GidLeaderboard {
+    pub fn update_player(&mut self, player_gid: &String, winner_name: &String) {
+        let player_draw = String::from("");
+
+        let is_draw = winner_name.eq(&player_draw);
+        let is_player_win = !is_draw && winner_name.eq(player_gid);
+        let is_player_lose = !is_draw && winner_name.ne(player_gid);
+
+        if let Some(player) = self.gid.iter_mut().find(|p| p.name == *player_gid) {
+            player.play = player.play.saturating_add(1);
+
+            if is_player_win {
+                // Player Win
+                player.win = player.win.saturating_add(1);
+            } else if is_player_lose {
+                // Player Lose
+                player.lose = player.lose.saturating_add(1);
+            }
+        } else {
+            let mut new_player = Player::new(player_gid.clone());
+
+            if is_player_win {
+                // Player Win
+                new_player.win = new_player.win.saturating_add(1);
+            } else if is_player_lose {
+                // Player Lose
+                new_player.lose = new_player.lose.saturating_add(1);
+            }
+
+            self.gid.push(new_player);
+        }
     }
 }

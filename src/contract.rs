@@ -65,7 +65,7 @@ impl Contract for BlackJackContract {
 
     async fn execute_operation(&mut self, _operation: Self::Operation) -> Self::Response {
         match _operation {
-            CardOperation::Join { player_id, player_name, version } => {
+            CardOperation::Join { player_id, player_name, version, gid } => {
                 log::info!("CardOperation::Join");
 
                 // root chain are not allowed to play
@@ -79,6 +79,7 @@ impl Contract for BlackJackContract {
                         let player_one = self.state.p1.get_mut();
                         player_one.id = player_id;
                         player_one.name = player_name;
+                        player_one.gid = gid;
                         game_state.status = Status::Waiting;
                         game_state.last_update = current_time;
                     }
@@ -92,7 +93,7 @@ impl Contract for BlackJackContract {
                             game_state.last_update = current_time;
 
                             // let new people join because previous game is inactive for more than 18 seconds
-                            self.reset_and_register_new_player(player_id, player_name);
+                            self.reset_and_register_new_player(player_id, player_name, gid);
 
                             // send message for room status update & analytics
                             self.send_room_status_update().await;
@@ -109,6 +110,7 @@ impl Contract for BlackJackContract {
                         let player_two = self.state.p2.get_mut();
                         player_two.id = player_id.clone();
                         player_two.name = player_name.clone();
+                        player_two.gid = gid;
                         game_state.status = Status::Started;
                         game_state.last_update = current_time;
                         self.start_game(player_id, player_name).await;
@@ -126,7 +128,7 @@ impl Contract for BlackJackContract {
                         game_state.last_update = current_time;
 
                         // let new people join because previous game is inactive for more than 18 seconds
-                        self.reset_and_register_new_player(player_id, player_name);
+                        self.reset_and_register_new_player(player_id, player_name, gid);
                     }
                     Status::Finish => {
                         // change status to Waiting for Player 2
@@ -134,7 +136,7 @@ impl Contract for BlackJackContract {
                         game_state.last_update = current_time;
 
                         // start new game
-                        self.reset_and_register_new_player(player_id, player_name);
+                        self.reset_and_register_new_player(player_id, player_name, gid);
                     }
                 }
 
@@ -228,7 +230,7 @@ impl Contract for BlackJackContract {
             });
 
         match _message {
-            BlackJackMessage::GameResult { p1, p2, winner, time } => {
+            BlackJackMessage::GameResult { p1, p1gid, p2, p2gid, winner, winner_gid, time } => {
                 log::info!("BlackJackMessage::GameResult");
                 // BlackJackMessage::GameResult not being tracked
                 // Even if it does, bouncing message should do nothing.
@@ -249,6 +251,13 @@ impl Contract for BlackJackContract {
                 current_leaderboard.update_player(&p2, &winner);
                 // current_leaderboard.sort_rank();
                 current_leaderboard.update_count();
+
+                // load gid leaderboard
+                let current_gid_leaderboard = self.state.gid_leaderboard.get_mut();
+
+                // update gid leaderboard
+                current_gid_leaderboard.update_player(&p1gid, &winner_gid);
+                current_gid_leaderboard.update_player(&p2gid, &winner_gid);
 
                 // add game history
                 self.state.history.push_back(History { p1, p2, winner, time });
@@ -343,11 +352,12 @@ impl BlackJackContract {
         }
     }
 
-    fn reset_and_register_new_player(&mut self, player_id: String, player_name: String) {
+    fn reset_and_register_new_player(&mut self, player_id: String, player_name: String, gid: String) {
         // create Player 1
         let mut player_one = Player::default();
         player_one.id = player_id;
         player_one.name = player_name;
+        player_one.gid = gid;
 
         // update Player 1 data and reset previous game stats
         self.state.p1.set(player_one);
@@ -356,12 +366,15 @@ impl BlackJackContract {
         self.state.play_data.clear();
     }
 
-    async fn send_game_finish_message(&mut self, p1: String, p2: String, winner: String) {
+    async fn send_game_finish_message(&mut self, p1: String, p1gid: String, p2: String, p2gid: String, winner: String, winner_gid: String) {
         // send message to leaderboard chain
         let message = BlackJackMessage::GameResult {
             p1,
+            p1gid,
             p2,
+            p2gid,
             winner,
+            winner_gid,
             time: self.runtime.system_time(),
         };
         self.runtime
@@ -425,15 +438,18 @@ impl BlackJackContract {
             let p2_score = p2_data.my_score;
 
             let mut winner = String::from("");
+            let mut winner_gid = String::from("");
 
             if p1_score == p2_score {
                 // Draw
             } else if p1_score > p2_score && p1_score <= 21 || p2_score > 21 {
                 // Player 1 win
                 winner = player_one.name.clone();
+                winner_gid = player_one.gid.clone();
             } else if p2_score > p1_score && p2_score <= 21 || p1_score > 21 {
                 // Player 2 win
                 winner = player_two.name.clone();
+                winner_gid = player_two.gid.clone();
             }
 
             // update data
@@ -461,7 +477,14 @@ impl BlackJackContract {
             });
 
             // send message to leaderboard chain
-            self.send_game_finish_message(player_one.name.clone(), player_two.name.clone(), winner).await;
+            self.send_game_finish_message(
+                player_one.name.clone(),
+                player_one.gid.clone(),
+                player_two.name.clone(),
+                player_two.gid.clone(),
+                winner,
+                winner_gid,
+            ).await;
 
             // send room status update
             self.send_room_status_update().await;
@@ -541,6 +564,7 @@ impl BlackJackContract {
 
         let mut winner_exist = false;
         let mut winner = String::from("");
+        let mut winner_gid = String::from("");
 
         if p1_have_blackjack && p2_have_blackjack {
             // Draw
@@ -549,18 +573,22 @@ impl BlackJackContract {
             // Player 1 win
             winner_exist = true;
             winner = player_one.name.clone();
+            winner_gid = player_one.gid.clone();
         } else if p2_have_blackjack {
             // Player 2 win
             winner_exist = true;
             winner = player_two.name.clone();
+            winner_gid = player_two.gid.clone();
         } else if p1_score == 21 || p2_score > 21 {
             // Player 1 win
             winner_exist = true;
             winner = player_one.name.clone();
+            winner_gid = player_one.gid.clone();
         } else if p2_score == 21 || p1_score > 21 {
             // Player 2 win
             winner_exist = true;
             winner = player_two.name.clone();
+            winner_gid = player_two.gid.clone();
         }
 
         let current_time = self.runtime.system_time();
@@ -593,7 +621,14 @@ impl BlackJackContract {
             });
 
             // send message to leaderboard chain
-            self.send_game_finish_message(player_one.name.clone(), player_two.name.clone(), winner).await;
+            self.send_game_finish_message(
+                player_one.name.clone(),
+                player_one.gid.clone(),
+                player_two.name.clone(),
+                player_two.gid.clone(),
+                winner,
+                winner_gid,
+            ).await;
 
             // send room status update
             self.send_room_status_update().await;

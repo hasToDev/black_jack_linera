@@ -15,7 +15,7 @@ use linera_sdk::{
 };
 use linera_sdk::base::ChainId;
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, History, Insight, Leaderboard, PlayData, VersionAnalytics};
+use black_jack_chain::{CardOperation, GidLeaderboard, History, Insight, Leaderboard, PlayData, VersionAnalytics};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -114,6 +114,10 @@ impl BlackJackService {
 
     async fn get_leaderboard(&self) -> Leaderboard {
         self.state.leaderboard.get().clone()
+    }
+
+    async fn get_gid_leaderboard(&self) -> GidLeaderboard {
+        self.state.gid_leaderboard.get().clone()
     }
 
     async fn get_game_room_status(&self) -> Vec<Insight> {
