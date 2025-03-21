@@ -1,6 +1,6 @@
 use linera_sdk::base::ChainId;
 use linera_sdk::views::{linera_views, MapView, RegisterView, RootView, ViewStorageContext, QueueView};
-use black_jack_chain::{Player, GameState, PlayData, History, Insight, VersionAnalytics, Leaderboard, GidLeaderboard};
+use black_jack_chain::{Player, GameState, PlayData, History, Insight, VersionAnalytics, Leaderboard, GidLeaderboard, PlayerStatus};
 
 #[derive(RootView, async_graphql::SimpleObject)]
 #[view(context = "ViewStorageContext")]
@@ -19,4 +19,6 @@ pub struct BlackJack {
     pub room_status: MapView<ChainId, Insight>,
     // analytics chain
     pub analytics: MapView<String, VersionAnalytics>,
+    // player status chain
+    pub player_status: MapView<String, PlayerStatus>,
 }

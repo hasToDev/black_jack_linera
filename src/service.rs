@@ -15,7 +15,7 @@ use linera_sdk::{
 };
 use linera_sdk::base::ChainId;
 use linera_sdk::graphql::GraphQLMutationRoot;
-use black_jack_chain::{CardOperation, GidLeaderboard, History, Insight, Leaderboard, PlayData, VersionAnalytics};
+use black_jack_chain::{CardOperation, GidLeaderboard, History, Insight, Leaderboard, PlayData, PlayerStatus, VersionAnalytics};
 
 #[derive(Clone)]
 pub struct BlackJackService {
@@ -142,5 +142,15 @@ impl BlackJackService {
         }
 
         analytics_data
+    }
+
+
+    async fn get_player_status(&self, name: String) -> PlayerStatus {
+        if self.state.player_status.contains_key(&name).await.unwrap_or(false) {
+            return self.state.player_status.get(&name).await
+                .unwrap_or_else(|_| { panic!("unable to get player status"); })
+                .unwrap_or_else(|| { panic!("unable to get player status"); });
+        }
+        PlayerStatus::default()
     }
 }

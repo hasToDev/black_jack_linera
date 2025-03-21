@@ -30,6 +30,7 @@ pub struct BlackJackParameters {
     pub leaderboard_pass: String,
     pub room_status_chain_id: ChainId,
     pub analytics_chain_id: ChainId,
+    pub player_status_chain_id: ChainId,
 }
 
 /// ------------------------------------------------------------------------------------------
@@ -52,6 +53,14 @@ pub enum BlackJackMessage {
     },
     Analytic {
         version: String,
+    },
+    PlayerJoin {
+        name: String,
+        gid: String,
+    },
+    PlayerFinish {
+        p1: String,
+        p2: String,
     },
 }
 
@@ -418,4 +427,25 @@ impl GidLeaderboard {
             self.gid.push(new_player);
         }
     }
+}
+
+/// ------------------------------------------------------------------------------------------
+/// [PlayerStatus]
+/// ------------------------------------------------------------------------------------------
+#[derive(
+    Debug,
+    Clone,
+    Default,
+    Deserialize,
+    Eq,
+    Ord,
+    PartialOrd,
+    PartialEq,
+    Serialize,
+    SimpleObject
+)]
+
+pub struct PlayerStatus {
+    pub gid: String,
+    pub time: Timestamp,
 }

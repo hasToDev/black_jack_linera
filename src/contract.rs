@@ -10,7 +10,7 @@ use linera_sdk::{
     views::{RootView, View},
     Contract, ContractRuntime,
 };
-use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState, Insight, VersionAnalytics};
+use black_jack_chain::{BlackJackParameters, BlackJackMessage, CardOperation, Status, PlayData, LastAction, History, Player, GameState, Insight, VersionAnalytics, PlayerStatus};
 use self::state::BlackJack;
 use crate::count::*;
 use crate::random::*;
@@ -53,10 +53,14 @@ impl Contract for BlackJackContract {
             // 1. equal with Leaderboard Chain ID
             // 2. different from the Room Status Chain ID
             // 3. different from the Analytics Chain ID
+            // 4. different from the Player Status Chain ID
             assert_eq!(chain_id, app_params.leaderboard_chain_id, "runtime ChainID doesn't match ChainID parameters");
             assert_ne!(chain_id, app_params.room_status_chain_id, "runtime ChainID must be different than Room Status ChainID");
             assert_ne!(chain_id, app_params.analytics_chain_id, "runtime ChainID must be different than Analytics ChainID");
+            assert_ne!(chain_id, app_params.player_status_chain_id, "runtime ChainID must be different than Player Status ChainID");
             assert_ne!(app_params.room_status_chain_id, app_params.analytics_chain_id, "Room Status ChainID must be different than Analytics ChainID");
+            assert_ne!(app_params.analytics_chain_id, app_params.player_status_chain_id, "Analytics ChainID must be different than Player Status ChainID");
+            assert_ne!(app_params.room_status_chain_id, app_params.player_status_chain_id, "Room Status ChainID must be different than Player Status ChainID");
 
             // set leaderboard to accept stats
             self.state.leaderboard_on.set(true);
@@ -78,8 +82,8 @@ impl Contract for BlackJackContract {
                     Status::Idle => {
                         let player_one = self.state.p1.get_mut();
                         player_one.id = player_id;
-                        player_one.name = player_name;
-                        player_one.gid = gid;
+                        player_one.name = player_name.clone();
+                        player_one.gid = gid.clone();
                         game_state.status = Status::Waiting;
                         game_state.last_update = current_time;
                     }
@@ -93,11 +97,12 @@ impl Contract for BlackJackContract {
                             game_state.last_update = current_time;
 
                             // let new people join because previous game is inactive for more than 18 seconds
-                            self.reset_and_register_new_player(player_id, player_name, gid);
+                            self.reset_and_register_new_player(player_id, player_name.clone(), gid.clone());
 
-                            // send message for room status update & analytics
+                            // send message for room status update, analytics, and player status
                             self.send_room_status_update().await;
                             self.send_app_version_analytics(version).await;
+                            self.send_player_join_update(player_name, gid).await;
 
                             return;
                         }
@@ -110,10 +115,10 @@ impl Contract for BlackJackContract {
                         let player_two = self.state.p2.get_mut();
                         player_two.id = player_id.clone();
                         player_two.name = player_name.clone();
-                        player_two.gid = gid;
+                        player_two.gid = gid.clone();
                         game_state.status = Status::Started;
                         game_state.last_update = current_time;
-                        self.start_game(player_id, player_name).await;
+                        self.start_game(player_id, player_name.clone()).await;
                     }
                     Status::Started => {
                         let time_elapsed = current_time.micros() - game_state.last_update.micros();
@@ -128,7 +133,7 @@ impl Contract for BlackJackContract {
                         game_state.last_update = current_time;
 
                         // let new people join because previous game is inactive for more than 18 seconds
-                        self.reset_and_register_new_player(player_id, player_name, gid);
+                        self.reset_and_register_new_player(player_id, player_name.clone(), gid.clone());
                     }
                     Status::Finish => {
                         // change status to Waiting for Player 2
@@ -136,13 +141,14 @@ impl Contract for BlackJackContract {
                         game_state.last_update = current_time;
 
                         // start new game
-                        self.reset_and_register_new_player(player_id, player_name, gid);
+                        self.reset_and_register_new_player(player_id, player_name.clone(), gid.clone());
                     }
                 }
 
-                // send message for room status update & analytics
+                // send message for room status update, analytics, and player status
                 self.send_room_status_update().await;
                 self.send_app_version_analytics(version).await;
+                self.send_player_join_update(player_name, gid).await;
             }
             CardOperation::Action { player_id, action } => {
                 log::info!("CardOperation::Action");
@@ -260,7 +266,10 @@ impl Contract for BlackJackContract {
                 current_gid_leaderboard.update_player(&p2gid, &winner_gid);
 
                 // add game history
-                self.state.history.push_back(History { p1, p2, winner, time });
+                self.state.history.push_back(History { p1: p1.clone(), p2: p2.clone(), winner, time });
+
+                // update player status
+                self.send_player_finish_update(p1, p2).await;
             }
             BlackJackMessage::RoomUpdate { id, status } => {
                 log::info!("BlackJackMessage::RoomUpdate");
@@ -306,6 +315,36 @@ impl Contract for BlackJackContract {
                 // save analytics
                 self.state.analytics.insert(&version, analytics).unwrap_or_else(|_| { panic!("Failed to update analytics for {:?}", version); });
             }
+            BlackJackMessage::PlayerJoin { name, gid } => {
+                log::info!("BlackJackMessage::PlayerJoin");
+                // BlackJackMessage::PlayerJoin not being tracked
+                // Even if it does, bouncing message should do nothing.
+                if is_bouncing {
+                    return;
+                }
+
+                // create and save player status
+                let player_status = PlayerStatus { gid, time: self.runtime.system_time() };
+                self.state.player_status.insert(&name, player_status).unwrap_or_else(|_| { panic!("Failed to insert {:?}", name); });
+            }
+            BlackJackMessage::PlayerFinish { p1, p2 } => {
+                log::info!("BlackJackMessage::PlayerFinish");
+                // BlackJackMessage::PlayerFinish not being tracked
+                // Even if it does, bouncing message should do nothing.
+                if is_bouncing {
+                    return;
+                }
+
+                // remove Player 1
+                if self.state.player_status.contains_key(&p1).await.unwrap_or(false) {
+                    self.state.player_status.remove(&p1).unwrap_or_else(|_| { panic!("Failed to remove {:?}", p1); });
+                }
+
+                // remove Player 2
+                if self.state.player_status.contains_key(&p2).await.unwrap_or(false) {
+                    self.state.player_status.remove(&p2).unwrap_or_else(|_| { panic!("Failed to remove {:?}", p2); });
+                }
+            }
         }
     }
 
@@ -318,7 +357,8 @@ impl BlackJackContract {
     fn check_root_invocation(&mut self) {
         assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().leaderboard_chain_id, "Leaderboard chain are not allowed to play");
         assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().room_status_chain_id, "Room status chain are not allowed to play");
-        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().analytics_chain_id, "Analytics chain are not allowed to play")
+        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().analytics_chain_id, "Analytics chain are not allowed to play");
+        assert_ne!(self.runtime.chain_id(), self.runtime.application_parameters().player_status_chain_id, "Player Status chain are not allowed to play")
     }
 
     fn check_p(&mut self, p: String) {
@@ -403,6 +443,22 @@ impl BlackJackContract {
         self.runtime
             .prepare_message(message)
             .send_to(self.runtime.application_parameters().analytics_chain_id);
+    }
+
+    async fn send_player_join_update(&mut self, name: String, gid: String) {
+        // send message to analytics chain
+        let message = BlackJackMessage::PlayerJoin { name, gid };
+        self.runtime
+            .prepare_message(message)
+            .send_to(self.runtime.application_parameters().player_status_chain_id);
+    }
+
+    async fn send_player_finish_update(&mut self, p1: String, p2: String) {
+        // send message to analytics chain
+        let message = BlackJackMessage::PlayerFinish { p1, p2 };
+        self.runtime
+            .prepare_message(message)
+            .send_to(self.runtime.application_parameters().player_status_chain_id);
     }
 
     async fn stand(&mut self, player_id: String, idle_action_check: bool) {
