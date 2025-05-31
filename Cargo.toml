@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 async-graphql = { version = "=7.0.2", default-features = false }
 async-graphql-derive = { version = "=7.0.2", default-features = false }
+async-graphql-parser = { version = "=7.0.2", default-features = false }
+async-graphql-value = { version = "=7.0.2", default-features = false }
 getrandom = { version = "0.2.15", default-features = false, features = ["custom"] }
 linera-sdk = "0.13.1"
 log = "0.4.22"
